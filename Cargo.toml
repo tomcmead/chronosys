@@ -1,0 +1,24 @@
+[package]
+name = "chronosys"
+version = "0.1.0"
+edition = "2021"
+authors = ["Tom Mead <tomcmead0@gmail.com>"]
+description = "Linux system monitor and persistent capture tool"
+exclude = ["tests"]
+
+[package.metadata.deb]
+maintainer = "Tom Mead <tomcmead0@gmail.com>"
+assets = [
+    ["target/release/chronosys", "/usr/bin/", "755"],
+]
+
+[lints.rust]
+unsafe_code = "forbid"
+unused_imports = "warn"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"
+
+[profile.release]
+lto = true # Link time optimisation
