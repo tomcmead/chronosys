@@ -10,3 +10,12 @@ services:
       - /app/target
     environment:
       - RUST_LOG=debug
+
+  # Release Test Environment
+  release:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: release
+    environment:
+      - RUST_LOG=info
