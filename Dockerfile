@@ -27,7 +27,7 @@ COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 
 # Release Builder: compiles application code on top of cached release dependencies
-FROM rust:1.85-slim AS builder
+FROM lukemathwalker/cargo-chef:latest-rust-1.85-slim AS builder
 WORKDIR /app
 COPY . .
 COPY --from=release-cacher /app/target target
