@@ -1,0 +1,12 @@
+services:
+  # Development Environment
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      - .:/app
+      - /app/target
+    environment:
+      - RUST_LOG=debug
