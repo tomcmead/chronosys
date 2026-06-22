@@ -2,15 +2,22 @@
 name = "chronosys"
 version = "0.1.0"
 edition = "2021"
-authors = ["Tom Mead <tomcmead0@gmail.com>"]
+authors = ["Tom Mead"]
 description = "Linux system monitor and persistent capture tool"
 exclude = ["tests"]
 
 [package.metadata.deb]
-maintainer = "Tom Mead <tomcmead0@gmail.com>"
+maintainer = "Tom Mead"
 assets = [
     ["target/release/chronosys", "/usr/bin/", "755"],
 ]
+
+[dependencies]
+log = "0.4.33"
+
+[dependencies.env_logger]
+version = "0.11"
+optional = true
 
 [lints.rust]
 unsafe_code = "forbid"
@@ -22,3 +29,7 @@ pedantic = "warn"
 
 [profile.release]
 lto = true # Link time optimisation
+
+[features]
+default = ["logging"]
+logging = ["dep:env_logger"]
