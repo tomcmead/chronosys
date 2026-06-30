@@ -1,6 +1,12 @@
+mod pipeline;
 mod system_metrics;
 
-fn main() {
+use std::time::Duration;
+use tokio::sync::mpsc;
+use tokio_util::sync::CancellationToken;
+
+#[tokio::main]
+async fn main() {
     // Setup env_logger to read from the RUST_LOG env variable
     #[cfg(feature = "logging")]
     {
@@ -11,17 +17,30 @@ fn main() {
 
     log::debug!("Chronosys starting...");
 
-    let mut global_metrics = match system_metrics::GlobalMetricsCollector::new() {
-        Ok(c) => c,
-        Err(e) => {
-            log::error!("Failed to initialise GlobalMetricsCollector: {e:?}");
-            return;
-        }
-    };
+    let shutdown_token = CancellationToken::new();
 
-    match global_metrics.get_metrics() {
-        Ok(metrics) => log::debug!("Memory Metrics: {0:?}", metrics.memory),
-        Err(e) => log::error!("Error collecting global metrics: {e:?}"),
+    // Wire channel to form the pipeline
+    let (metrics_tx, _metrics_rx) = mpsc::channel(256);
+
+    // Async tasks independently scheduled by tokio
+    let global_metrics_handle = tokio::spawn(pipeline::global_metrics_task(
+        shutdown_token.clone(),
+        metrics_tx,
+        Duration::from_millis(200),
+    ));
+
+    // Block until ctrl+c
+    tokio::signal::ctrl_c()
+        .await
+        .expect("Failed to listen for signal SIGINT");
+    shutdown_token.cancel();
+
+    log::debug!("Chronosys shutting down...");
+
+    // Await all async tasks
+    match global_metrics_handle.await {
+        Ok(()) => log::debug!("Global metrics task succeeded"),
+        Err(e) => log::error!("Global metrics task failed: {e:?}"),
     }
 
     log::debug!("Chronosys exited");
