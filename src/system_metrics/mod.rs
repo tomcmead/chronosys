@@ -1,4 +1,2 @@
-mod global_metrics;
-mod types;
-
-pub use global_metrics::GlobalMetricsCollector;
+pub mod global_metrics;
+pub mod types;
