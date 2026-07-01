@@ -1,37 +1,35 @@
-[package]
-name = "chronosys"
-version = "0.1.0"
-edition = "2021"
-authors = ["Tom Mead"]
-description = "Linux system monitor and persistent capture tool"
-exclude = ["tests"]
-
-[package.metadata.deb]
-maintainer = "Tom Mead"
-assets = [
-    ["target/release/chronosys", "/usr/bin/", "755"],
+[workspace]
+resolver = "2"
+members = [
+    "chronosys",
+    "chronosys-common",
+    "chronosys-ebpf",
 ]
+default-members = ["chronosys", "chronosys-common"]
 
-[dependencies]
-log = "0.4.33"
-tokio = { version = "1.52.3", features = ["full"] }
-tokio-util = "0.7.18"
+[workspace.package]
+license = "MIT OR Apache-2.0"
+edition = "2024"
 
-[dependencies.env_logger]
-version = "0.11"
-optional = true
-
-[lints.rust]
-unsafe_code = "forbid"
-unused_imports = "warn"
-
-[lints.clippy]
-all = "warn"
-pedantic = "warn"
+[workspace.dependencies]
+aya = { version = "0.13.1", default-features = false }
+aya-build = { version = "0.2.0",  default-features = false }
+aya-ebpf = { version = "0.2.1",  default-features = false }
+aya-log = { version = "0.3.0",  default-features = false }
+aya-log-ebpf = { version = "0.2.0",  default-features = false }
+anyhow = { version = "1", default-features = false }
+cargo_metadata = { version = "0.23.0", default-features = false }
+clap = { version = "4.5.20", default-features = false, features = ["std"] }
+env_logger = { version = "0.11.5", default-features = false }
+libc = { version = "0.2.159", default-features = false }
+log = { version = "0.4.22", default-features = false }
+tokio = { version = "1.40.0", default-features = false }
+which = { version = "8.0.4", default-features = false }
 
 [profile.release]
-lto = true # Link time optimisation
+lto = true
 
-[features]
-default = ["logging"]
-logging = ["dep:env_logger"]
+[profile.release.package.chronosys-ebpf]
+debug = 2
+codegen-units = 1
+strip = false
