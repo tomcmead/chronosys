@@ -1,17 +1,31 @@
 # Planner: create recipe of dependencies
-FROM lukemathwalker/cargo-chef:latest-rust-1.85-slim AS planner
+FROM lukemathwalker/cargo-chef:0.1.77-rust-1.93.1-slim-trixie AS planner
 WORKDIR /app
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
+# Toolchain base: everything needed to build the eBPF crate, shared by both cachers
+FROM lukemathwalker/cargo-chef:0.1.77-rust-1.93.1-slim-trixie AS toolchain-base
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    clang \
+    llvm \
+    libelf-dev \
+    pkg-config \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+RUN rustup toolchain install nightly --component rust-src
+RUN cargo +nightly install bpf-linker
+RUN rustup component add rustfmt
+
 # Dev Cacher: pre-build external dependencies in DEBUG mode
-FROM lukemathwalker/cargo-chef:latest-rust-1.85-slim AS dev-cacher
+FROM toolchain-base AS dev-cacher
 WORKDIR /app
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --recipe-path recipe.json
 
 # Dev Target: final target for local coding. Uses cargo-watch for hot-reloads.
-FROM lukemathwalker/cargo-chef:latest-rust-1.85-slim AS development
+FROM toolchain-base AS development
 WORKDIR /app
 RUN cargo install --locked cargo-watch
 # Pull pre-compiled debug dependencies
@@ -21,13 +35,13 @@ COPY . .
 CMD ["cargo", "watch", "-x", "run"]
 
 # Release Cacher: pre-build external dependencies in RELEASE mode
-FROM lukemathwalker/cargo-chef:latest-rust-1.85-slim AS release-cacher
+FROM toolchain-base AS release-cacher
 WORKDIR /app
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 
 # Release Builder: compiles application code on top of cached release dependencies
-FROM lukemathwalker/cargo-chef:latest-rust-1.85-slim AS builder
+FROM toolchain-base AS builder
 WORKDIR /app
 COPY . .
 COPY --from=release-cacher /app/target target
