@@ -25,6 +25,7 @@ version = "0.11"
 optional = true
 
 [dev-dependencies]
+cargo-husky = { version = "1", features = ["precommit-hook","user-hooks",] }
 pretty_assertions = "1.4.0"
 
 [build-dependencies]

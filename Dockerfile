@@ -16,7 +16,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 RUN rustup toolchain install nightly --component rust-src
 RUN cargo +nightly install bpf-linker
-RUN rustup component add rustfmt
 
 # Dev Cacher: pre-build external dependencies in DEBUG mode
 FROM toolchain-base AS dev-cacher
@@ -28,6 +27,7 @@ RUN cargo chef cook --recipe-path recipe.json
 FROM toolchain-base AS development
 WORKDIR /app
 RUN cargo install --locked cargo-watch
+RUN rustup component add rustfmt clippy
 # Pull pre-compiled debug dependencies
 COPY --from=dev-cacher /app/target target
 COPY --from=dev-cacher /usr/local/cargo /usr/local/cargo

@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+cargo fmt --all -- --check
+cargo check --workspace --exclude chronosys-ebpf
+cargo clippy --workspace --exclude chronosys-ebpf -- -D warnings
+cargo test --workspace --exclude chronosys-ebpf
