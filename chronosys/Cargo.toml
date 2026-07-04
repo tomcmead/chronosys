@@ -13,10 +13,13 @@ assets = [
 ]
 
 [dependencies]
+anyhow = { workspace = true, default-features = true }
 chronosys-common = { path = "../chronosys-common", features = ["user"] }
 aya = { workspace = true }
 aya-log = { workspace = true }
+bytemuck = { workspace = true }
 log = "0.4.33"
+nix = { version = "0.31.3", features = ["poll"] }
 tokio = { version = "1.52.3", features = ["full"] }
 tokio-util = "0.7.18"
 

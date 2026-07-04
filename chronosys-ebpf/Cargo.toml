@@ -4,14 +4,12 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
-chronosys-common = { path = "../chronosys-common" }
-
 aya-ebpf = { workspace = true }
-aya-log-ebpf = { workspace = true }
+chronosys-common = { path = "../chronosys-common" }
 
 [build-dependencies]
 which = { workspace = true }
 
 [[bin]]
-name = "chronosys"
+name = "chronosys-ebpf"
 path = "src/main.rs"

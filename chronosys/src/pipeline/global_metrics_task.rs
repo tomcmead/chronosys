@@ -5,12 +5,13 @@ use tokio::sync::mpsc;
 use tokio::time::Duration;
 use tokio_util::sync::CancellationToken;
 
+// Polls global system metrics and sends them to the async pipeline
 pub async fn global_metrics_task(
     shutdown_token: CancellationToken,
     send_metrics: mpsc::Sender<GlobalMetrics>,
     poll_interval: Duration,
 ) {
-    log::debug!("System metrics async task starting...");
+    log::debug!("Global system metrics async task starting...");
 
     let mut interval = tokio::time::interval(poll_interval);
     let mut metrics_collector =

@@ -5,9 +5,12 @@ services:
       context: .
       dockerfile: Dockerfile
       target: development
+    privileged: true
+    pid: host
     volumes:
       - .:/app
       - /app/target
+      - /sys/kernel/debug:/sys/kernel/debug:ro
     environment:
       - RUST_LOG=debug
 
@@ -17,5 +20,9 @@ services:
       context: .
       dockerfile: Dockerfile
       target: release
+    privileged: true
+    pid: host
+    volumes:
+      - /sys/kernel/debug:/sys/kernel/debug:ro
     environment:
       - RUST_LOG=info
