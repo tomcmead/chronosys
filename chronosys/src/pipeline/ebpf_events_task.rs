@@ -138,6 +138,7 @@ pub fn load_ebpf() -> anyhow::Result<Ebpf> {
         "raw_syscalls",
         "sys_exit",
     )?;
+    attach_tracepoint(&mut ebpf, "handle_sched_switch", "sched", "sched_switch")?;
 
     Ok(ebpf)
 }

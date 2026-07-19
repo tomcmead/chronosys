@@ -19,6 +19,10 @@ static PROCESS_LIFECYCLES: RingBuf = RingBuf::with_byte_size(1024 * 1024, 0);
 #[map]
 static PROCESS_METRICS: HashMap<u32, ProcessMetrics> = HashMap::with_max_entries(1024, 0);
 
+// Map PID to timestamp last scheduled onto CPU
+#[map]
+static SCHEDULED_TIMESTAMPS: HashMap<u32, u64> = HashMap::with_max_entries(1024, 0);
+
 // Tracepoint eBPF handler pushes new process exec events (creation) to ring buffer for userspace
 #[tracepoint]
 pub fn handle_exec(ctx: TracePointContext) -> u32 {
@@ -88,12 +92,13 @@ fn try_handle_exit(ctx: &TracePointContext) -> Result<(), i64> {
     let timestamp_ns: u64 = unsafe { bpf_ktime_get_ns() };
     let raw_exit: i32 = unsafe { ctx.read_at(8) }.unwrap_or(0);
     let pid_tgid: u64 = bpf_get_current_pid_tgid();
+    let pid: u32 = (pid_tgid >> 32) as u32;
     let uid_gid: u64 = bpf_get_current_uid_gid();
     let comm: [u8; 16] = bpf_get_current_comm().unwrap_or([0u8; TASK_COMM_LEN]);
 
     let event = ProcessLifecycleEvent {
         timestamp_ns,
-        pid: (pid_tgid >> 32) as u32,
+        pid: pid as u32,
         ppid: 0,
         uid: uid_gid as u32,
         gid: (uid_gid >> 32) as u32,
@@ -105,6 +110,9 @@ fn try_handle_exit(ctx: &TracePointContext) -> Result<(), i64> {
 
     entry.write(event);
     entry.submit(0);
+
+    let _ = SCHEDULED_TIMESTAMPS.remove(&pid);
+
     Ok(())
 }
 
@@ -185,6 +193,43 @@ pub fn handle_generic_sys_exit(ctx: TracePointContext) -> u32 {
             }
         }
     }
+    0
+}
+
+// Tracepoint: sched/sched_switch
+#[tracepoint]
+pub fn handle_sched_switch(ctx: TracePointContext) -> u32 {
+    let now: u64 = unsafe { bpf_ktime_get_ns() };
+
+    // /sys/kernel/debug/tracing/events/sched/sched_switch/format offsets
+    let Ok(prev_pid) = (unsafe { ctx.read_at::<u32>(24) }) else {
+        return 0;
+    };
+    let Ok(next_pid) = (unsafe { ctx.read_at::<u32>(56) }) else {
+        return 0;
+    };
+
+    // Accumulate cpu_cycles_ns per PID via task switch in/out. Ignore PID 0 idle task.
+    if prev_pid != 0 {
+        if let Some(metrics_ptr) = get_process_metrics(prev_pid) {
+            #[allow(unsafe_code)]
+            unsafe {
+                if let Some(scheduled_timestamp) = SCHEDULED_TIMESTAMPS.get(&prev_pid) {
+                    if now >= *scheduled_timestamp {
+                        (*metrics_ptr).cpu_cycles_ns += now - *scheduled_timestamp;
+                    }
+                }
+            }
+        }
+        // PID no longer running in scheduled tasks, still may be tracked in PROCESS_METRICS
+        let _ = SCHEDULED_TIMESTAMPS.remove(&prev_pid);
+    }
+
+    // Record next scheduled task if tracked PID
+    if next_pid != 0 && get_process_metrics(next_pid).is_some() {
+        let _ = SCHEDULED_TIMESTAMPS.insert(&next_pid, &now, 0);
+    }
+
     0
 }
 
