@@ -115,10 +115,29 @@ pub fn load_ebpf() -> anyhow::Result<Ebpf> {
         "/chronosys-ebpf"
     )))?;
 
-    // sched_process_exec: Fires immediately when any process replaces its image space (calling a new binary)
+    // Attach exec and exit tracepoints to collect process lifecycle events
     attach_tracepoint(&mut ebpf, "handle_exec", "sched", "sched_process_exec")?;
-    // sched_process_exit: Fires when a process is exiting, used to collect exit_code and final lifecycle metrics
     attach_tracepoint(&mut ebpf, "handle_exit", "sched", "sched_process_exit")?;
+
+    // Attach syscall tracepoints to collect process metrics
+    attach_tracepoint(
+        &mut ebpf,
+        "handle_sys_exit_read",
+        "syscalls",
+        "sys_exit_read",
+    )?;
+    attach_tracepoint(
+        &mut ebpf,
+        "handle_sys_exit_write",
+        "syscalls",
+        "sys_exit_write",
+    )?;
+    attach_tracepoint(
+        &mut ebpf,
+        "handle_generic_sys_exit",
+        "raw_syscalls",
+        "sys_exit",
+    )?;
 
     Ok(ebpf)
 }

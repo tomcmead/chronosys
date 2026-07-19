@@ -41,7 +41,7 @@ pub async fn process_metrics_task(
                 };
 
                 for process_snapshot in process_snapshots {
-                    log::debug!("Process metrics snapshot for pid={}", process_snapshot.pid);
+                    log::debug!("Process metrics snapshot for pid={} bytes_read={} bytes_read={} read_ops={} write_ops={} syscall_errors={}", process_snapshot.pid, process_snapshot.metrics.bytes_read , process_snapshot.metrics.bytes_written, process_snapshot.metrics.read_ops, process_snapshot.metrics.write_ops, process_snapshot.metrics.syscall_errors);
                     if metrics_tx.send(process_snapshot.metrics).await.is_err() {
                         return;
                     }
