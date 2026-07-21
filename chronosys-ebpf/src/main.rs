@@ -41,21 +41,12 @@ fn try_handle_exec(ctx: &TracePointContext) -> Result<(), i64> {
     // eBPF aya context helper functions
     let timestamp_ns: u64 = unsafe { bpf_ktime_get_ns() };
     let pid_tgid = bpf_get_current_pid_tgid();
-    let pid = (pid_tgid >> 32) as u32; // Upper pid_tgid 32 bits is pid
+    let pid: u32 = (pid_tgid >> 32) as u32; // Upper pid_tgid 32 bits is pid
     let ppid: u32 = unsafe { ctx.read_at(16) }.unwrap_or(0); // unsafe read of parent pid from tracepoint context at offset 16 bytes
     let uid_gid = bpf_get_current_uid_gid();
     let comm = bpf_get_current_comm().unwrap_or([0u8; TASK_COMM_LEN]);
 
-    // Initialise process metrics from new pid
-    let zeroed = ProcessMetrics {
-        bytes_read: 0,
-        bytes_written: 0,
-        read_ops: 0,
-        write_ops: 0,
-        cpu_cycles_ns: 0,
-        syscall_errors: 0,
-    };
-    let _ = PROCESS_METRICS.insert(&pid, &zeroed, 0); // Ignore failure when map full
+    _ = create_process_metric(pid); // Ignore failure when map full
 
     let event = ProcessLifecycleEvent {
         timestamp_ns,
@@ -116,8 +107,59 @@ fn try_handle_exit(ctx: &TracePointContext) -> Result<(), i64> {
     Ok(())
 }
 
-fn get_process_metrics(pid: u32) -> Option<*mut ProcessMetrics> {
-    PROCESS_METRICS.get_ptr_mut(&pid)
+// Tracepoint eBPF handler pushes process fork events (before child execve, some child never execve) to ring buffer for userspace
+#[tracepoint]
+pub fn handle_fork(ctx: TracePointContext) -> u32 {
+    match try_handle_fork(&ctx) {
+        Ok(()) => 0,
+        Err(_) => 1,
+    }
+}
+
+fn try_handle_fork(ctx: &TracePointContext) -> Result<(), i64> {
+    // /sys/kernel/debug/tracing/events/sched/sched_process_fork/format layout fields
+    let Ok(parent_pid) = (unsafe { ctx.read_at::<u32>(24) }) else {
+        return Ok(());
+    };
+    let Ok(child_pid) = (unsafe { ctx.read_at::<u32>(44) }) else {
+        return Ok(());
+    };
+
+    // Read child comm from tracepoint args as bpf_get_current_comm() returns parent comm
+    let mut comm = [0u8; TASK_COMM_LEN];
+    if unsafe { ctx.read_at::<[u8; TASK_COMM_LEN]>(28) }
+        .map(|c| comm = c)
+        .is_err()
+    {
+        // Fall back to parent comm if unsafe read fails
+        comm = bpf_get_current_comm().unwrap_or([0u8; TASK_COMM_LEN]);
+    }
+
+    _ = create_process_metric(child_pid); // Ignore failure when map full
+
+    let mut entry = match PROCESS_LIFECYCLES.reserve::<ProcessLifecycleEvent>(0) {
+        Some(e) => e,
+        None => return Ok(()),
+    };
+
+    let timestamp_ns: u64 = unsafe { bpf_ktime_get_ns() };
+    let uid_gid = bpf_get_current_uid_gid(); // child inherits parent's uid/gid at fork
+
+    let event = ProcessLifecycleEvent {
+        timestamp_ns,
+        pid: child_pid,
+        ppid: parent_pid,
+        uid: uid_gid as u32,
+        gid: (uid_gid >> 32) as u32,
+        exit_code: 0,
+        event_kind: event_kind::FORK,
+        _pad: [0u8; 3],
+        comm,
+    };
+
+    entry.write(event);
+    entry.submit(0);
+    Ok(())
 }
 
 // Tracepoint: syscalls/sys_exit_read
@@ -231,6 +273,24 @@ pub fn handle_sched_switch(ctx: TracePointContext) -> u32 {
     }
 
     0
+}
+
+// Helper process metrics management functions
+fn create_process_metric(pid: u32) -> Result<(), i32> {
+    // Initialise process metrics with new pid
+    let initial_metrics = ProcessMetrics {
+        bytes_read: 0,
+        bytes_written: 0,
+        read_ops: 0,
+        write_ops: 0,
+        cpu_cycles_ns: 0,
+        syscall_errors: 0,
+    };
+    return PROCESS_METRICS.insert(&pid, &initial_metrics, 0);
+}
+
+fn get_process_metrics(pid: u32) -> Option<*mut ProcessMetrics> {
+    PROCESS_METRICS.get_ptr_mut(&pid)
 }
 
 // No std library so needs custom minimal panic handler

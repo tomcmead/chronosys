@@ -8,6 +8,7 @@ pub const TASK_COMM_LEN: usize = 16; // Linux task name length always 116 bytes
 pub mod event_kind {
     pub const EXEC: u8 = 0;
     pub const EXIT: u8 = 1;
+    pub const FORK: u8 = 2;
 }
 
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
@@ -32,7 +33,7 @@ unsafe impl aya::Pod for ProcessLifecycleEvent {}
 impl ProcessLifecycleEvent {
     pub fn kind(&self) -> Option<u8> {
         match self.event_kind {
-            event_kind::EXEC | event_kind::EXIT => Some(self.event_kind),
+            event_kind::EXEC | event_kind::EXIT | event_kind::FORK => Some(self.event_kind),
             _ => None,
         }
     }

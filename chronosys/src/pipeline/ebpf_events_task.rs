@@ -118,6 +118,7 @@ pub fn load_ebpf() -> anyhow::Result<Ebpf> {
     // Attach exec and exit tracepoints to collect process lifecycle events
     attach_tracepoint(&mut ebpf, "handle_exec", "sched", "sched_process_exec")?;
     attach_tracepoint(&mut ebpf, "handle_exit", "sched", "sched_process_exit")?;
+    attach_tracepoint(&mut ebpf, "handle_fork", "sched", "sched_process_fork")?;
 
     // Attach syscall tracepoints to collect process metrics
     attach_tracepoint(

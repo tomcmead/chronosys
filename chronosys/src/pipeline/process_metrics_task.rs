@@ -31,6 +31,10 @@ pub async fn process_metrics_task(
                 if e.event_kind == event_kind::EXIT {
                     log::debug!("Process exit detected for pid={} comm={}", e.pid, e.comm_str());
                 }
+
+                if e.event_kind == event_kind::FORK {
+                    log::debug!("Process fork detected for pid={} comm={}", e.pid, e.comm_str());
+                }
             }
 
             // Process metrics received from eBPF metrics map snapshots
