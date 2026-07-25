@@ -1,14 +1,14 @@
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 
-pub use super::types::{GlobalMetrics, MemoryMetrics};
+pub use super::types::MemoryMetrics;
 
-pub struct GlobalMetricsCollector {
+pub struct MemoryMetricsCollector {
     memory_info_file: File,
     buffer: Vec<u8>,
 }
 
-impl GlobalMetricsCollector {
+impl MemoryMetricsCollector {
     pub fn new() -> std::io::Result<Self> {
         Ok(Self {
             memory_info_file: File::open("/proc/meminfo")?,
@@ -16,7 +16,7 @@ impl GlobalMetricsCollector {
         })
     }
 
-    pub fn get_metrics(&mut self) -> std::io::Result<GlobalMetrics> {
+    pub fn get_memory_metrics(&mut self) -> std::io::Result<MemoryMetrics> {
         self.buffer.clear();
         self.memory_info_file.seek(SeekFrom::Start(0))?;
         self.memory_info_file.read_to_end(&mut self.buffer)?;
@@ -24,12 +24,10 @@ impl GlobalMetricsCollector {
         let contents = std::str::from_utf8(&self.buffer)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
-        Ok(GlobalMetrics {
-            memory: Self::parse_memory_metrics(contents),
-        })
+        Ok(Self::parse_memory_info(contents))
     }
 
-    fn parse_memory_metrics(contents: &str) -> MemoryMetrics {
+    fn parse_memory_info(contents: &str) -> MemoryMetrics {
         let mut mem_metrics = MemoryMetrics::default();
         let mut num_mem_metrics = 8; // Early return after all 8 fields parsed
 
@@ -111,7 +109,7 @@ mod tests {
 
     #[test]
     fn test_parse_memory_metrics_success() {
-        let memory_metrics = GlobalMetricsCollector::parse_memory_metrics(MOCK_MEMINFO);
+        let memory_metrics = MemoryMetricsCollector::parse_memory_info(MOCK_MEMINFO);
 
         assert_eq!(memory_metrics.total, 3600 * 1024);
         assert_eq!(memory_metrics.free, 100 * 1024);
@@ -134,7 +132,7 @@ mod tests {
             CorruptLabel:   abc kB
             Buffers:        100 kB
         ";
-        let memory_metrics = GlobalMetricsCollector::parse_memory_metrics(input);
+        let memory_metrics = MemoryMetricsCollector::parse_memory_info(input);
 
         assert_eq!(memory_metrics.total, 1600 * 1024);
         assert_eq!(memory_metrics.free, 400 * 1024);
@@ -148,7 +146,7 @@ mod tests {
 
     #[test]
     fn test_parse_memory_metrics_empty_input() {
-        let memory_metrics = GlobalMetricsCollector::parse_memory_metrics("");
+        let memory_metrics = MemoryMetricsCollector::parse_memory_info("");
         assert_eq!(memory_metrics.total, 0);
         assert_eq!(memory_metrics.free, 0);
         assert_eq!(memory_metrics.used, 0);

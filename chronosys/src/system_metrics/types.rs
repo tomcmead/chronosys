@@ -1,5 +1,11 @@
 use chronosys_common::ProcessMetrics;
 
+#[derive(Clone, Debug)]
+pub struct ProcessMetricsSnapshot {
+    pub pid: u32,
+    pub metrics: ProcessMetrics,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct GlobalMetrics {
     pub memory: MemoryMetrics,
@@ -16,10 +22,4 @@ pub struct MemoryMetrics {
     pub swap_total: u64, // Total allocated swap space (SwapTotal)
     pub swap_free: u64,  // Unused swap space available (SwapFree)
     pub slab: u64,       // Kernel-internal data structure cache (Slab)
-}
-
-#[derive(Clone, Debug)]
-pub struct ProcessMetricsSnapshot {
-    pub pid: u32,
-    pub metrics: ProcessMetrics,
 }

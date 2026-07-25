@@ -1,5 +1,5 @@
-use crate::system_metrics::global_metrics::GlobalMetricsCollector;
 use crate::system_metrics::types::GlobalMetrics;
+use crate::system_metrics::GlobalMetricsCollector;
 
 use tokio::sync::mpsc;
 use tokio::time::Duration;
