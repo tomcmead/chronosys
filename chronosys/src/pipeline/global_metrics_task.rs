@@ -34,6 +34,7 @@ pub async fn global_metrics_task(
                 match global_metrics {
                     Ok(metrics) => {
                         log::debug!("Memory metrics: {:?}", metrics.memory);
+                        log::debug!("CPU metrics: {:?}", metrics.cpu);
                         if let Err(e) = send_metrics.send(metrics).await {
                             log::error!("Failed to send global metrics with error: {e:?}");
                             return;
